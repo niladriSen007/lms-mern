@@ -6,6 +6,7 @@
     "express-rate-limit": "^7.5.0",
     "helmet": "^8.0.0",
     "hpp": "^0.2.3",
+    "mongoose": "^8.9.3",
     "x-xss-protection": "^2.0.0"
   }
 }

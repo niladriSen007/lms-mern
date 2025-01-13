@@ -1,4 +1,4 @@
-import mongoose, { mongo } from "mongoose"
+import mongoose from "mongoose"
 const MAX_RETRIES = 5
 const RETRY_INTERVAL = 5000
 
@@ -12,15 +12,17 @@ class Connection {
       console.log("connected")
       this.isConnected = true
     })
-    mongoose.connection.on("open", () => console.log("open"))
+
     mongoose.connection.on("disconnected", () =>{
       console.log("disconnected")
       this.isConnected = false
       this.handleDisconnect()
     })
-    mongoose.connection.on("reconnected", () => console.log("reconnected"))
-    mongoose.connection.on("disconnecting", () => console.log("disconnecting"))
-    mongoose.connection.on("close", () => console.log("close"))
+
+    mongoose.connection.on('error', (err) => {
+      console.error('❌ MongoDB connection error:', err);
+      this.isConnected = false;
+  });
 
     process.on("SIGTERM", this.handleAppTermination.bind(this))
   }
@@ -31,11 +33,11 @@ class Connection {
       return
     }
 
-    if (!process.env.MONGO_URL) {
-      throw new Error("MONGO_URL is not set")
-    }
-
+    
     try {
+      if (!process.env.MONGO_URL) {
+        throw new Error("MONGO_URL is not set")
+      }
       if (process.env.NODE_ENV === "development") {
         mongoose.set("debug", true)
       }
@@ -57,17 +59,11 @@ class Connection {
   }
 
   async handleErrors() {
-    /* mongoose.connection.on("error", (error) => { */
-      console.error("Error connecting to database:", error)
-      if (this.retries < MAX_RETRIES) {
-        this.retries++
-        console.log(`Retrying ${this.retries} th time in ${RETRY_INTERVAL / 1000} seconds...`)
-        setTimeout(async () => await this.connect(), RETRY_INTERVAL)
-      } else {
-        console.error("Max retries reached. Exiting...")
-        process.exit(1)
-      }
-    /* }) */
+    if (this.retries < MAX_RETRIES) {
+      this.retries++
+      console.log(`Retrying ${this.retries} th time...`)
+      setTimeout(async () => await this.connect(), RETRY_INTERVAL)
+    }
   }
 
   async handleDisconnect() {
@@ -86,10 +82,10 @@ class Connection {
     try {
       await mongoose.connection.close()
       console.log("Database connection closed")
-      process.exit(1)
+      process.exit(0)
     } catch (error) {
       console.error("Error disconnecting from database:", error)
-      process.exit(0)
+      process.exit(1)
     }
   }
 
